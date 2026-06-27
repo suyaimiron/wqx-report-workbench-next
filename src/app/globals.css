@@ -1,0 +1,102 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --nav-height: 86px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background: #071527;
+  color: #f7fbff;
+  font-family: "Inter", "Segoe UI", "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+  letter-spacing: 0;
+}
+
+body::before {
+  position: fixed;
+  inset: 0;
+  z-index: -3;
+  content: "";
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(45, 212, 191, 0.18), transparent 30%),
+    radial-gradient(circle at 82% 4%, rgba(96, 165, 250, 0.18), transparent 28%),
+    linear-gradient(135deg, #061425 0%, #0a2541 44%, #1d2459 100%);
+}
+
+body::after {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  content: "";
+  opacity: 0.26;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.25));
+}
+
+button,
+input {
+  font: inherit;
+}
+
+::selection {
+  color: #061425;
+  background: #67e8f9;
+}
+
+.dashboard-shell {
+  position: relative;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.dashboard-shell::before {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  content: "";
+  background:
+    radial-gradient(circle at 50% 0%, rgba(244, 250, 255, 0.14), transparent 24%),
+    radial-gradient(circle at 14% 70%, rgba(20, 184, 200, 0.12), transparent 24%),
+    radial-gradient(circle at 90% 76%, rgba(99, 102, 241, 0.16), transparent 25%);
+}
+
+.glass-card {
+  background: linear-gradient(180deg, rgba(244, 250, 255, 0.94), rgba(226, 241, 250, 0.86));
+  border: 1px solid rgba(255, 255, 255, 0.68);
+  box-shadow: 0 22px 70px rgba(1, 14, 32, 0.24);
+  backdrop-filter: blur(22px);
+}
+
+.dark-glass {
+  background: linear-gradient(180deg, rgba(9, 31, 56, 0.78), rgba(8, 22, 40, 0.62));
+  border: 1px solid rgba(148, 215, 230, 0.24);
+  box-shadow: 0 22px 70px rgba(1, 14, 32, 0.28);
+  backdrop-filter: blur(22px);
+}
+
+.numeric {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 768px) {
+  :root {
+    --nav-height: 124px;
+  }
+}
