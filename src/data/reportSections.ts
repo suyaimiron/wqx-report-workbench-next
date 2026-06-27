@@ -1,4 +1,5 @@
 import type { PageKey } from "@/lib/mode";
+import { withBasePath } from "@/lib/sitePath";
 
 export type ReportImage = {
   title: string;
@@ -30,9 +31,9 @@ export type ReportSection = {
   chart?: "annualCost" | "repeatCapacity";
 };
 
-const dispatch = "/report-images/dispatch";
-const flood = "/report-images/flood";
-const floodStorage = "/report-images/economy";
+const dispatch = withBasePath("/report-images/dispatch");
+const flood = withBasePath("/report-images/flood");
+const floodStorage = withBasePath("/report-images/economy");
 
 export const deadwaterStorageTable: ReportTable = {
   title: "表 3-2-5 各方案死水位及相关库容结果表",
