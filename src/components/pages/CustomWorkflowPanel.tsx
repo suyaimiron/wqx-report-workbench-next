@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, Calculator, CheckCircle2, ChevronDown, CircleHelp, Database, FileUp, LockKeyhole, RotateCcw } from "lucide-react";
+import { AlertTriangle, Calculator, CheckCircle2, ChevronDown, CircleHelp, Database, Download, FileUp, LockKeyhole, RotateCcw } from "lucide-react";
 import { clsx } from "clsx";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -36,7 +36,7 @@ type Field = {
   help: string;
 };
 
-function HelpButton({ field }: { field: Field }) {
+function HelpButton({ field, side = "left" }: { field: Field; side?: "left" | "right" }) {
   return (
     <details className="relative inline-block">
       <summary
@@ -45,7 +45,12 @@ function HelpButton({ field }: { field: Field }) {
       >
         <CircleHelp size={15} />
       </summary>
-      <div className="absolute right-0 z-20 mt-2 w-72 rounded-2xl border border-cyan-100 bg-white p-4 text-sm leading-6 text-slate-700 shadow-xl">
+      <div
+        className={clsx(
+          "absolute top-1/2 z-30 w-72 -translate-y-1/2 rounded-2xl border border-cyan-100 bg-white p-4 text-sm leading-6 text-slate-700 shadow-xl",
+          side === "right" ? "left-full ml-3" : "right-full mr-3"
+        )}
+      >
         <p className="font-semibold text-basin-950">{field.label}</p>
         <p className="mt-1">{field.help}</p>
         <p className="mt-2 text-xs font-semibold text-cyan-800">来源：{field.source}</p>
@@ -54,11 +59,12 @@ function HelpButton({ field }: { field: Field }) {
   );
 }
 
-function FieldList({ title, icon, fields, emptyText }: {
+function FieldList({ title, icon, fields, emptyText, helpSide = "left" }: {
   title: string;
   icon: React.ReactNode;
   fields: Field[];
   emptyText: string;
+  helpSide?: "left" | "right";
 }) {
   return (
     <div className="rounded-3xl border border-white/70 bg-white/60 p-4">
@@ -80,7 +86,7 @@ function FieldList({ title, icon, fields, emptyText }: {
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-semibold text-basin-950">{field.label}</span>
-                  <HelpButton field={field} />
+                  <HelpButton field={field} side={helpSide} />
                 </div>
                 <p className="mt-1 text-xs text-slate-500">{field.source}</p>
               </div>
@@ -150,8 +156,67 @@ function WorkflowTable({ rows, stepKey }: { rows: string[][]; stepKey: CustomSte
   );
 }
 
+type FileSavePicker = {
+  createWritable: () => Promise<{
+    write: (data: Blob) => Promise<void>;
+    close: () => Promise<void>;
+  }>;
+};
+
+type SavePickerWindow = Window & {
+  showSaveFilePicker?: (options: {
+    suggestedName: string;
+    types?: Array<{ description: string; accept: Record<string, string[]> }>;
+  }) => Promise<FileSavePicker>;
+};
+
+function buildExportText(stepKey: CustomStepKey, output: NonNullable<CustomWorkflowState["outputs"][CustomStepKey]>) {
+  const lines = [
+    "五强溪水电站水利计算自定义试算结果",
+    `步骤：${stepDisplayName(stepKey)}`,
+    `生成时间：${output.generatedAt}`,
+    "",
+    "一、核心结果",
+    ...output.highlights.map((item) => `${item.label}：${item.value}`),
+    "",
+    "二、结果表",
+    ...output.rows.map((row) => row.join(",")),
+    "",
+    "三、说明",
+    output.note
+  ];
+
+  return lines.join("\n");
+}
+
+async function saveExportFile(fileName: string, content: string) {
+  const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+  const pickerWindow = window as SavePickerWindow;
+
+  if (pickerWindow.showSaveFilePicker) {
+    const handle = await pickerWindow.showSaveFilePicker({
+      suggestedName: fileName,
+      types: [{ description: "文本文件", accept: { "text/plain": [".txt"] } }]
+    });
+    const writable = await handle.createWritable();
+    await writable.write(blob);
+    await writable.close();
+    return;
+  }
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 export function CustomWorkflowPanel({ stepKey, state, onChange }: CustomWorkflowPanelProps) {
   const [fileError, setFileError] = useState("");
+  const [exportMessage, setExportMessage] = useState("");
   const spec = getStepInputSpec(stepKey, state);
   const blocked = getBlockedDependency(stepKey, state);
   const output = state.outputs[stepKey];
@@ -201,12 +266,31 @@ export function CustomWorkflowPanel({ stepKey, state, onChange }: CustomWorkflow
 
   function handleCalculate() {
     if (!canCalculate) return;
+    setExportMessage("");
     const nextOutput = calculateCustomStep(stepKey, state);
     onChange({
       ...state,
       statuses: { ...state.statuses, [stepKey]: "calculated" },
       outputs: { ...state.outputs, [stepKey]: nextOutput }
     });
+  }
+
+  async function handleExport() {
+    if (!output) return;
+    setExportMessage("");
+    const safeStepName = stepDisplayName(stepKey).replace(/[\\/:*?"<>|]/g, "-");
+    const fileName = `五强溪水电站-${safeStepName}-自定义试算结果.txt`;
+
+    try {
+      await saveExportFile(fileName, buildExportText(stepKey, output));
+      setExportMessage("已生成导出文件。若浏览器弹出保存窗口，可选择 D 盘位置保存。");
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        setExportMessage("已取消导出。");
+        return;
+      }
+      setExportMessage("导出失败，请重试或检查浏览器下载权限。");
+    }
   }
 
   return (
@@ -279,18 +363,21 @@ export function CustomWorkflowPanel({ stepKey, state, onChange }: CustomWorkflow
           title="必要输入"
           icon={<Calculator size={17} />}
           fields={spec.required}
+          helpSide="right"
           emptyText="本步骤无需用户额外输入，直接读取前序结果或指导书内置资料。"
         />
         <FieldList
           title="已由前步带入"
           icon={<LockKeyhole size={17} />}
           fields={spec.carried}
+          helpSide="left"
           emptyText="本步骤是第一步，暂无前序输入。"
         />
         <FieldList
           title="指导书内置资料"
           icon={<Database size={17} />}
           fields={spec.library}
+          helpSide="right"
           emptyText="本步骤主要汇总前序结果，不需要额外内置资料。"
         />
         <details className="rounded-3xl border border-white/70 bg-white/60 p-4">
@@ -302,7 +389,7 @@ export function CustomWorkflowPanel({ stepKey, state, onChange }: CustomWorkflow
             <ChevronDown size={18} />
           </summary>
           <div className="mt-3">
-            <FieldList title="高级参数" icon={<RotateCcw size={17} />} fields={spec.advanced} emptyText="当前步骤没有需要用户处理的高级参数。" />
+            <FieldList title="高级参数" icon={<RotateCcw size={17} />} fields={spec.advanced} helpSide="left" emptyText="当前步骤没有需要用户处理的高级参数。" />
           </div>
         </details>
       </div>
@@ -328,10 +415,21 @@ export function CustomWorkflowPanel({ stepKey, state, onChange }: CustomWorkflow
         <div className="rounded-3xl border border-cyan-100 bg-white/70 p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h4 className="text-xl font-semibold text-basin-950">自定义试算输出</h4>
-            <span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-800">
-              {output.generatedAt}
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-800">
+                {output.generatedAt}
+              </span>
+              <Button type="button" onClick={handleExport}>
+                <Download size={17} />
+                导出本步结果
+              </Button>
+            </div>
           </div>
+          {exportMessage ? (
+            <p className="mt-3 rounded-2xl border border-cyan-100 bg-cyan-50 px-4 py-2 text-sm font-semibold text-cyan-800">
+              {exportMessage}
+            </p>
+          ) : null}
           <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {output.highlights.map((item) => (
               <div key={item.label} className="rounded-2xl border border-cyan-100 bg-cyan-50/80 p-4">
